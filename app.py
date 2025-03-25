@@ -13,40 +13,99 @@ data = {}
 
 users = {}
 
-# Session helper functions
+# helper functions
 def verifyJWT():
-    if session['email']:
-        return True
-    return False
+    username = session.get('username')
+    if username is None:
+        raise ValueError
+
+def verifyVarFromSession(varName: str, varType: type):
+    if varName in request.json and isinstance(request.json[varName], varType):
+        return request.json[varName]
+    raise ValueError
+
+def verifyIsJsonResponse():
+    if not request.json:
+        raise ValueError
 
 # SESSION MANAGEMENT ROUTES
 @app.route('/register', methods=['POST'])
 def regiester():
-    return dummyRoute()
+    # verify json response, presence of vars, and var types
+    try:
+        verifyIsJsonResponse()
+        username = verifyVarFromSession('username', str)
+        password = verifyVarFromSession('password', str)
+    except ValueError:
+        return jsonify({"error": "JSON request must include username (string) and password (string)"}), 400
+    
+    # Validate user / password requirements with regex.
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9-_]{3,32}$", username):
+        print(username)
+        return jsonify({"error": "Username must only consist of letters (lower or upper), numbers (0-9), and '-'."}), 400
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9-_]{3,32}$", password):
+        print(password)
+        return jsonify({"error": "Password must only consist of letters (lower or upper), numbers (0-9), and '-'."}), 400
+    
+    # Save login credentials
+    users[username] = password
+    return jsonify("Login credentials created.")
 
 @app.route('/login', methods=['POST'])
 def login():
-    return dummyRoute()
+    # verify request and var types
+    try:
+        verifyIsJsonResponse()
+        username = verifyVarFromSession('username', str)
+        password = verifyVarFromSession('password', str)
+    except ValueError:
+        return jsonify({"error": "JSON request must include username (string) and password (string)"}), 400
+    
+    # check if credentials valid
+    if not username in users or not users[username] == password:
+        return jsonify({"error": 'Invalid credentials'}), 401
+    
+    # create session
+    session['username'] = username
+    
+    return jsonify("Logged in.")
 
 @app.route('/logout', methods=['POST'])
 def logout():
-    return dummyRoute()
+    session.pop('username', None)
+    return jsonify("Logged out.")
 
 # CRUD ROUTES
 @app.route('/inventory', methods=['POST'])
 def createInventory():
+    try:
+        verifyJWT()
+    except ValueError:
+        return jsonify('error', 'Unauthorized'), 401
     return dummyRoute()
 
 @app.route('/inventory', methods=['GET'])
 def getAllInventory():
+    try:
+        verifyJWT()
+    except ValueError:
+        return jsonify('error', 'Unauthorized'), 401
     return dummyRoute()
 
 @app.route('/inventory/<int:item_id>', methods=['PATCH'])
 def updateInventory(item_id):
+    try:
+        verifyJWT()
+    except ValueError:
+        return jsonify('error', 'Unauthorized'), 401
     print("item id:", item_id)
     return dummyRoute()
 
 @app.route('/inventory/<int:item_id>', methods=['DELETE'])
 def deleteInventory(item_id):
+    try:
+        verifyJWT()
+    except ValueError:
+        return jsonify('error', 'Unauthorized'), 401
     print("item id:", item_id)
     return dummyRoute()
