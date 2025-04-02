@@ -10,8 +10,12 @@ def dummyRoute():
 # database in memory
 # each record in data should be a different users data.
 data = {}
-
 users = {}
+
+# inventory data structure
+inventory = {}
+# global variable for next item id ( Not sure if we should change this to something else)
+next_item_id = 1
 
 # helper functions
 def verifyJWT():
@@ -76,21 +80,74 @@ def logout():
     return jsonify("Logged out.")
 
 # CRUD ROUTES
+
+# ------------------------------------------------------------
+# Create Route for inventory
 @app.route('/inventory', methods=['POST'])
 def createInventory():
     try:
         verifyJWT()
+        verifyIsJsonResponse()
+        
+        # Verifing that all fields are present
+        required_fields = ['name', 'description', 'quantity', 'price']
+        for field in required_fields:
+            if field not in request.json:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        # Validate all field types here
+        if not isinstance(request.json['name'], str):
+            return jsonify({"error": "name must be a string"}), 400
+        if not isinstance(request.json['description'], str):
+            return jsonify({"error": "description must be a string"}), 400
+        if not isinstance(request.json['quantity'], int):
+            return jsonify({"error": "quantity must be an integer"}), 400
+        if not isinstance(request.json['price'], (int, float)):
+            return jsonify({"error": "price must be a number"}), 400
+        
+        # Create new inventory item
+        global next_item_id
+        new_item = {
+            'id': next_item_id,
+            'name': request.json['name'],
+            'description': request.json['description'],
+            'quantity': request.json['quantity'],
+            'price': request.json['price']
+        }
+        
+        # Updating Item ID for next item
+        inventory[next_item_id] = new_item
+        next_item_id += 1
+        
+        return jsonify(new_item), 201
+        
     except ValueError:
-        return jsonify('error', 'Unauthorized'), 401
-    return dummyRoute()
+        return jsonify({"error": "Unauthorized"}), 401
 
+# Read Route for inventory
 @app.route('/inventory', methods=['GET'])
 def getAllInventory():
     try:
         verifyJWT()
+        return jsonify(list(inventory.values()))
     except ValueError:
-        return jsonify('error', 'Unauthorized'), 401
-    return dummyRoute()
+        return jsonify({"error": "Unauthorized"}), 401
+
+# Read Route for Inventory Item by ID
+@app.route('/inventory/<int:item_id>', methods=['GET'])
+def getInventoryItem(item_id):
+    try:
+        verifyJWT()
+        if item_id not in inventory:
+            return jsonify({"error": "Item not found"}), 404
+        return jsonify(inventory[item_id])
+    except ValueError:
+        return jsonify({"error": "Unauthorized"}), 401
+
+# ------------------------------------------------------------
+
+
+
 
 @app.route('/inventory/<int:item_id>', methods=['PATCH'])
 def updateInventory(item_id):
@@ -109,3 +166,6 @@ def deleteInventory(item_id):
         return jsonify('error', 'Unauthorized'), 401
     print("item id:", item_id)
     return dummyRoute()
+
+if __name__ == '__main__':
+    app.run(debug=True)
