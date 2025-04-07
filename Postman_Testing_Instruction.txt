@@ -1,0 +1,108 @@
+Postman Testing Steps for Flask Inventory Management API
+
+------------------------------------------------------------
+1. Start the Flask Server
+------------------------------------------------------------
+- Open your terminal.
+- Run the application with:
+    python app.py
+- The Flask server will run at: http://127.0.0.1:5000
+
+------------------------------------------------------------
+2. User Registration and Login
+------------------------------------------------------------
+
+a. Register a New User
+------------------------
+- Method: POST
+- URL: http://127.0.0.1:5000/register
+- Headers: 
+    Content-Type: application/json
+- Body (raw JSON):
+    {
+      "username": "testuser",
+      "password": "testpass"
+    }
+- Expected Response: Confirmation message "Login credentials created."
+
+b. Log In
+------------------------
+- Method: POST
+- URL: http://127.0.0.1:5000/login
+- Headers:
+    Content-Type: application/json
+- Body (raw JSON):
+    {
+      "username": "testuser",
+      "password": "testpass"
+    }
+- Expected Response: "Logged in."
+- Note: Ensure Postman saves the session cookie for authentication.
+
+------------------------------------------------------------
+3. Inventory CRUD Endpoints
+------------------------------------------------------------
+
+a. Create an Inventory Item
+------------------------
+- Method: POST
+- URL: http://127.0.0.1:5000/inventory
+- Headers:
+    Content-Type: application/json
+- Body (raw JSON):
+    {
+      "name": "Iphone 16 Pro",
+      "description": "Iphone 16 Pro (2024) 256GB Storage with 42 MP Camera",
+      "quantity": 10,
+      "price": 999.99
+    }
+- Expected Response: A JSON object of the newly created inventory item, including an auto-generated "id".
+
+b. Retrieve All Inventory Items
+------------------------
+- Method: GET
+- URL: http://127.0.0.1:5000/inventory
+- Expected Response: A list of all inventory items.
+
+c. Retrieve a Specific Inventory Item
+------------------------
+- Method: GET
+- URL: http://127.0.0.1:5000/inventory/1
+  (Replace "1" with the actual item ID.)
+- Expected Response: Details of the inventory item with the specified ID.
+
+d. Update an Inventory Item
+------------------------
+- Method: PATCH
+- URL: http://127.0.0.1:5000/inventory/1
+  (Replace "1" with the actual item ID.)
+- Headers:
+    Content-Type: application/json
+- Body (raw JSON):
+    {
+      "quantity": 15,
+      "price": 950.00
+    }
+- Expected Response: A JSON object showing the updated inventory item details.
+
+e. Delete an Inventory Item
+------------------------
+- Method: DELETE
+- URL: http://127.0.0.1:5000/inventory/1
+  (Replace "1" with the actual item ID.)
+- Expected Response: A confirmation message along with details of the deleted item.
+
+------------------------------------------------------------
+4. Additional Tips
+------------------------------------------------------------
+- Ensure that the "Content-Type" header is set to "application/json" for POST, PATCH, and DELETE requests.
+- Postman should retain cookies between requests so that the authentication session is maintained.
+- Verify that you receive the appropriate HTTP status codes:
+    * 200 for successful GET, PATCH, and DELETE requests.
+    * 201 for successful POST requests.
+    * 400 for bad requests (e.g., missing fields or incorrect data types).
+    * 401 for unauthorized requests if the session is not valid.
+    * 404 if an inventory item is not found.
+- Re-login if session cookies are lost or expired.
+
+------------------------------------------------------------
