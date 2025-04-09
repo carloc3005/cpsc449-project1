@@ -156,12 +156,12 @@ def createInventory():
     try:
         verifyJWT()
         verifyIsJsonResponse()
-        required_fields = ['name', 'description', 'quantity', 'price']
+        required_fields = ['item_name', 'description', 'quantity', 'price']
         for field in required_fields:
             if field not in request.json:
                 return jsonify({"error": f"Missing required field: {field}"}), 400
-        if not isinstance(request.json['name'], str):
-            return jsonify({"error": "name must be a string"}), 400
+        if not isinstance(request.json['item_name'], str):
+            return jsonify({"error": "item_name must be a string"}), 400
         if not isinstance(request.json['description'], str):
             return jsonify({"error": "description must be a string"}), 400
         if not isinstance(request.json['quantity'], int):
@@ -172,7 +172,7 @@ def createInventory():
         global next_item_id
         new_item = {
             'id': next_item_id,
-            'name': request.json['name'],
+            'item_name': request.json['item_name'],
             'description': request.json['description'],
             'quantity': request.json['quantity'],
             'price': request.json['price'],
@@ -228,10 +228,10 @@ def updateInventory(item_id):
     if not request.json:
         return jsonify({"error": "Request must be in JSON format"}), 400
 
-    if 'name' in request.json:
-        if not isinstance(request.json['name'], str):
-            return jsonify({"error": "name must be a string"}), 400
-        item['name'] = request.json['name']
+    if 'item_name' in request.json:
+        if not isinstance(request.json['item_name'], str):
+            return jsonify({"error": "item_name must be a string"}), 400
+        item['item_name'] = request.json['item_name']
     if 'description' in request.json:
         if not isinstance(request.json['description'], str):
             return jsonify({"error": "description must be a string"}), 400
