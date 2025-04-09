@@ -1,3 +1,4 @@
+import uuid
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for
 import re
 
@@ -12,8 +13,7 @@ app.secret_key = 'server_secret_key'
 
 # In-memory storage for user credentials and inventory items.
 users = {}       # Format: { username: {"password": ..., "email": ..., "role": ...} }
-inventory = {}
-next_item_id = 1
+inventory = {}     # Format: { username: { item_id: item_data } }
 
 # -----------------------------------
 # Helper Functions for Verification
@@ -145,23 +145,35 @@ def logout():
 # -----------------------------------
 # Inventory CRUD Endpoints
 # -----------------------------------
-def can_access(item):
+def get_item_by_id(item_id):
+    """
+    Returns the item with the given ID from any user's inventory.
+
+    Note: Does NOT check if the current user has access.
+    Returns None if the item is not found.
+    """
+    for user_items in inventory.values():
+        if item_id in user_items:
+            return user_items[item_id]
+    return None
+
+def can_access(item_id):
     # Admins can access any item; others only their own.
     if session.get('role') == 'admin':
         return True
-    return item.get('owner') == session.get('username')
+    return item_id in inventory.get(session['username'], {})
 
 @app.route('/inventory', methods=['POST'])
 def createInventory():
     try:
         verifyJWT()
         verifyIsJsonResponse()
-        required_fields = ['name', 'description', 'quantity', 'price']
+        required_fields = ['item_name', 'description', 'quantity', 'price']
         for field in required_fields:
             if field not in request.json:
                 return jsonify({"error": f"Missing required field: {field}"}), 400
-        if not isinstance(request.json['name'], str):
-            return jsonify({"error": "name must be a string"}), 400
+        if not isinstance(request.json['item_name'], str):
+            return jsonify({"error": "item_name must be a string"}), 400
         if not isinstance(request.json['description'], str):
             return jsonify({"error": "description must be a string"}), 400
         if not isinstance(request.json['quantity'], int):
@@ -169,17 +181,21 @@ def createInventory():
         if not isinstance(request.json['price'], (int, float)):
             return jsonify({"error": "price must be a number"}), 400
 
-        global next_item_id
+        username = session['username']
+
+        # Initialize storage if this is user's first item
+        if username not in inventory:
+            inventory[username] = {}
+
+        item_id = str(uuid.uuid4())
         new_item = {
-            'id': next_item_id,
-            'name': request.json['name'],
+            'id': item_id,
+            'item_name': request.json['item_name'],
             'description': request.json['description'],
             'quantity': request.json['quantity'],
             'price': request.json['price'],
-            'owner': session['username']
         }
-        inventory[next_item_id] = new_item
-        next_item_id += 1
+        inventory[username][item_id] = new_item
 
         return jsonify(new_item), 201
 
@@ -191,47 +207,50 @@ def getAllInventory():
     try:
         verifyJWT()
         if session.get('role') == 'admin':
-            return jsonify(list(inventory.values()))
+            all_items = []
+            for user_items in inventory.values():
+                all_items.extend(user_items.values())
+            return jsonify(all_items)
         else:
-            user_items = [item for item in inventory.values() if item.get('owner') == session['username']]
-            return jsonify(user_items)
+            username = session['username']
+            return jsonify(list(inventory.get(username, {}).values()))
     except ValueError:
         return jsonify({"error": "Unauthorized"}), 401
 
-@app.route('/inventory/<int:item_id>', methods=['GET'])
+@app.route('/inventory/<item_id>', methods=['GET'])
 def getInventoryItem(item_id):
     try:
         verifyJWT()
-        if item_id not in inventory:
+        item = get_item_by_id(item_id)
+        if not item:
             return jsonify({"error": "Item not found"}), 404
-        item = inventory[item_id]
-        if not can_access(item):
+        if not can_access(item_id):
             return jsonify({"error": "Forbidden"}), 403
         return jsonify(item)
     except ValueError:
         return jsonify({"error": "Unauthorized"}), 401
 
-@app.route('/inventory/<int:item_id>', methods=['PATCH'])
+@app.route('/inventory/<item_id>', methods=['PATCH'])
 def updateInventory(item_id):
     try:
         verifyJWT()
     except ValueError:
         return jsonify({"error": "Unauthorized"}), 401
 
-    if item_id not in inventory:
+    item = get_item_by_id(item_id)
+    if not item:
         return jsonify({"error": "Item not found"}), 404
 
-    item = inventory[item_id]
-    if not can_access(item):
+    if not can_access(item_id):
         return jsonify({"error": "Forbidden"}), 403
 
     if not request.json:
         return jsonify({"error": "Request must be in JSON format"}), 400
 
-    if 'name' in request.json:
-        if not isinstance(request.json['name'], str):
-            return jsonify({"error": "name must be a string"}), 400
-        item['name'] = request.json['name']
+    if 'item_name' in request.json:
+        if not isinstance(request.json['item_name'], str):
+            return jsonify({"error": "item_name must be a string"}), 400
+        item['item_name'] = request.json['item_name']
     if 'description' in request.json:
         if not isinstance(request.json['description'], str):
             return jsonify({"error": "description must be a string"}), 400
@@ -247,21 +266,28 @@ def updateInventory(item_id):
 
     return jsonify(item), 200
 
-@app.route('/inventory/<int:item_id>', methods=['DELETE'])
+@app.route('/inventory/<item_id>', methods=['DELETE'])
 def deleteInventory(item_id):
     try:
         verifyJWT()
     except ValueError:
         return jsonify({"error": "Unauthorized"}), 401
 
-    if item_id not in inventory:
+    item = get_item_by_id(item_id)
+    if not item:
         return jsonify({"error": "Item not found"}), 404
 
-    item = inventory[item_id]
-    if not can_access(item):
+    if not can_access(item_id):
         return jsonify({"error": "Forbidden"}), 403
 
-    deleted_item = inventory.pop(item_id)
+    owner = session['username']
+    if session.get('role') == 'admin':
+        for username, items in inventory.items():
+            if item_id in items:
+                owner = username
+                break
+
+    deleted_item = inventory[owner].pop(item_id)
     return jsonify({
         "message": "Item deleted successfully",
         "item": deleted_item
@@ -275,9 +301,11 @@ def dashboard():
     try:
         verifyJWT()
         if session.get('role') == 'admin':
-            items = list(inventory.values())
+            items = []
+            for user_items in inventory.values():
+                items.extend(user_items.values())
         else:
-            items = [item for item in inventory.values() if item.get('owner') == session['username']]
+            items = list(inventory.get(session['username'], {}).values())
         return render_template("dashboard.html", items=items, username=session.get('username'))
     except ValueError:
         return redirect(url_for('login'))
