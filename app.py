@@ -167,19 +167,30 @@ def can_access(item_id):
 def createInventory():
     try:
         verifyJWT()
-        verifyIsJsonResponse()
+        
+        # Handle both form data and JSON requests
+        if request.is_json:
+            data = request.json
+        else:
+            data = request.form
+            
         required_fields = ['item_name', 'description', 'quantity', 'price']
         for field in required_fields:
-            if field not in request.json:
-                return jsonify({"error": f"Missing required field: {field}"}), 400
-        if not isinstance(request.json['item_name'], str):
-            return jsonify({"error": "item_name must be a string"}), 400
-        if not isinstance(request.json['description'], str):
-            return jsonify({"error": "description must be a string"}), 400
-        if not isinstance(request.json['quantity'], int):
-            return jsonify({"error": "quantity must be an integer"}), 400
-        if not isinstance(request.json['price'], (int, float)):
-            return jsonify({"error": "price must be a number"}), 400
+            if field not in data:
+                if request.is_json:
+                    return jsonify({"error": f"Missing required field: {field}"}), 400
+                else:
+                    return render_template("dashboard.html", error=f"Missing required field: {field}")
+                    
+        # Convert form data to appropriate types
+        try:
+            quantity = int(data['quantity'])
+            price = float(data['price'])
+        except ValueError:
+            if request.is_json:
+                return jsonify({"error": "Invalid quantity or price format"}), 400
+            else:
+                return render_template("dashboard.html", error="Invalid quantity or price format")
 
         username = session['username']
 
@@ -190,17 +201,23 @@ def createInventory():
         item_id = str(uuid.uuid4())
         new_item = {
             'id': item_id,
-            'item_name': request.json['item_name'],
-            'description': request.json['description'],
-            'quantity': request.json['quantity'],
-            'price': request.json['price'],
+            'item_name': data['item_name'],
+            'description': data['description'],
+            'quantity': quantity,
+            'price': price,
         }
         inventory[username][item_id] = new_item
 
-        return jsonify(new_item), 201
+        if request.is_json:
+            return jsonify(new_item), 201
+        else:
+            return redirect(url_for('dashboard'))
 
     except ValueError:
-        return jsonify({"error": "Unauthorized"}), 401
+        if request.is_json:
+            return jsonify({"error": "Unauthorized"}), 401
+        else:
+            return redirect(url_for('login'))
 
 @app.route('/inventory', methods=['GET'])
 def getAllInventory():
