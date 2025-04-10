@@ -121,6 +121,9 @@
     <table>
       <tr>
         <th>ID</th>
+        {% if session['role'] == 'admin' %}
+        <th>Owner</th>
+        {% endif %}
         <th>Item Name</th>
         <th>Description</th>
         <th>Quantity</th>
@@ -130,6 +133,9 @@
       {% for item in items %}
       <tr id="item-row-{{ item.id }}">
         <td>{{ item.id }}</td>
+        {% if session['role'] == 'admin' %}
+        <td>{{ item.owner }}</td>
+        {% endif %}
         <td>
           <span class="view-mode">{{ item.item_name }}</span>
           <input
@@ -226,7 +232,7 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify(data),
-          credentials: "include"
+          credentials: "include",
         })
           .then((response) => {
             if (response.ok) {
