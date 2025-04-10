@@ -197,6 +197,7 @@
         const viewModes = row.getElementsByClassName("view-mode");
         const editModes = row.getElementsByClassName("edit-mode");
         const editButton = row.querySelector("button.edit");
+        // Assuming the second button in the Actions cell is the Save button.
         const saveButton = row.querySelector("button:nth-child(2)");
 
         for (let view of viewModes) {
@@ -225,26 +226,42 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify(data),
-        }).then((response) => {
-          if (response.ok) {
-            location.reload();
-          } else {
-            alert("Failed to update item");
-          }
-        });
+          credentials: "include"
+        })
+          .then((response) => {
+            if (response.ok) {
+              location.reload();
+            } else {
+              response.json().then((data) => {
+                alert("Failed to update item: " + (data.error || ""));
+              });
+            }
+          })
+          .catch((error) => {
+            alert("Error updating item");
+            console.error(error);
+          });
       }
 
       function deleteItem(itemId) {
         if (confirm("Are you sure you want to delete this item?")) {
           fetch(`/inventory/${itemId}`, {
             method: "DELETE",
-          }).then((response) => {
-            if (response.ok) {
-              location.reload();
-            } else {
-              alert("Failed to delete item");
-            }
-          });
+            credentials: "include",
+          })
+            .then((response) => {
+              if (response.ok) {
+                location.reload();
+              } else {
+                response.json().then((data) => {
+                  alert("Failed to delete item: " + (data.error || ""));
+                });
+              }
+            })
+            .catch((error) => {
+              alert("Error deleting item");
+              console.error(error);
+            });
         }
       }
     </script>
