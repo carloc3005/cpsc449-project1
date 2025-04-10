@@ -319,8 +319,11 @@ def dashboard():
         verifyJWT()
         if session.get('role') == 'admin':
             items = []
-            for user_items in inventory.values():
-                items.extend(user_items.values())
+            for username, user_items in inventory.items():
+                for item in user_items.values():
+                    item_with_owner = item.copy()
+                    item_with_owner['owner'] = username
+                    items.append(item_with_owner)
         else:
             items = list(inventory.get(session['username'], {}).values())
         return render_template("dashboard.html", items=items, username=session.get('username'))
